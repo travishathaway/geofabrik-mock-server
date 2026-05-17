@@ -1,3 +1,4 @@
+import hashlib
 import re
 import shutil
 from datetime import date, datetime, timezone
@@ -22,15 +23,9 @@ def find_region_in_index(index: dict, region_id: str) -> dict | None:
     (e.g. 'europe'). A path-style input is resolved by matching the last segment against
     `id` and the preceding segment against `parent`.
     """
-    parts = region_id.strip("/").split("/")
-    short_id = parts[-1]
-    parent_id = parts[-2] if len(parts) >= 2 else None
-
     for feature in index.get("features", []):
         props = feature.get("properties", {})
-        if props.get("id") != short_id:
-            continue
-        if parent_id is not None and props.get("parent") != parent_id:
+        if props.get("id") != region_id:
             continue
         return feature
     return None
@@ -125,10 +120,43 @@ def download_file(url: str, dest: Path) -> None:
             shutil.copyfileobj(resp.raw, f)
 
 
+def build_dated_pbf_url(pbf_url: str, target_date: date) -> str:
+    """Return the dated variant of a -latest.osm.pbf URL.
+
+    'https://download.geofabrik.de/europe/monaco-latest.osm.pbf', date(2026, 5, 12)
+    → 'https://download.geofabrik.de/europe/monaco-260512.osm.pbf'
+    """
+    date_str = target_date.strftime("%y%m%d")
+    return pbf_url.replace("-latest.osm.pbf", f"-{date_str}.osm.pbf")
+
+
+def _verify_md5(file_path: Path, md5_url: str) -> None:
+    resp = requests.get(md5_url, timeout=15)
+    resp.raise_for_status()
+    # MD5 file format: "hash  filename" or just "hash"
+    expected = resp.text.strip().split()[0]
+    actual = hashlib.md5(file_path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise ValueError(
+            f"MD5 mismatch for {file_path.name}: expected {expected}, got {actual}"
+        )
+
+
 def download_pbf(pbf_url: str, dest: Path) -> None:
     print(f"  Downloading PBF: {pbf_url}")
     download_file(pbf_url, dest)
     print(f"  Saved: {dest}")
+
+
+def download_pbf_for_date(pbf_url: str, target_date: date, dest: Path) -> None:
+    """Download the dated PBF snapshot, verify its MD5, and save it as dest."""
+    dated_url = build_dated_pbf_url(pbf_url, target_date)
+    md5_url = dated_url + ".md5"
+    print(f"  Downloading PBF: {dated_url}")
+    download_file(dated_url, dest)
+    print(f"  Verifying MD5…")
+    _verify_md5(dest, md5_url)
+    print(f"  MD5 OK — saved: {dest}")
 
 
 def download_updates(

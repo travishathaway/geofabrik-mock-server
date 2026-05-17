@@ -1,10 +1,15 @@
 import importlib.resources
 import shutil
 from pathlib import Path
+from urllib.parse import urlparse
 
 import click
 
 from geofabrik_mock_server.core import manifest
+
+
+def _rel_path_from_url(url: str) -> str:
+    return urlparse(url).path.lstrip("/")
 
 
 def _data_root() -> Path:
@@ -28,18 +33,13 @@ def remove_command(region_id: str, yes: bool) -> None:
     manifest.save_manifest(regions)
     click.echo(f"Removed '{region_id}' from regions.json.")
 
-    # Determine local data paths to clean up
+    # Determine local data paths to clean up using stored URLs (not region_id string)
     data_root = _data_root()
-    # region_id is like "europe/andorra" → continent/name
-    parts = region_id.split("/")
-    if len(parts) == 2:
-        continent, name = parts
-        candidates = [
-            data_root / continent / f"{name}-latest.osm.pbf",
-            data_root / continent / f"{name}-updates",
-        ]
-    else:
-        candidates = []
+    candidates = []
+    if region.get("pbf_url"):
+        candidates.append(data_root / _rel_path_from_url(region["pbf_url"]))
+    if region.get("updates_url"):
+        candidates.append(data_root / _rel_path_from_url(region["updates_url"]))
 
     existing = [p for p in candidates if p.exists()]
     if not existing:

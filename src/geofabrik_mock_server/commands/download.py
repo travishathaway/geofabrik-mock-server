@@ -2,10 +2,13 @@ import importlib.resources
 import json
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
 import click
 
 from geofabrik_mock_server.core import geofabrik, manifest
+
+GEOFABRIK_BASE = "https://download.geofabrik.de"
 
 
 def _data_root() -> Path:
@@ -14,13 +17,13 @@ def _data_root() -> Path:
         return p
 
 
-def _region_paths(region_id: str) -> tuple[str, str, str]:
-    """Return (continent, name, updates_subdir) for a region_id like 'europe/andorra'."""
-    parts = region_id.split("/")
-    continent = parts[0]
-    name = parts[-1]
-    updates_subdir = f"{continent}/{name}-updates"
-    return continent, name, updates_subdir
+def _rel_path_from_url(url: str) -> str:
+    """Return the path component of a Geofabrik URL, relative to the base.
+
+    'https://download.geofabrik.de/europe/monaco-latest.osm.pbf'
+    → 'europe/monaco-latest.osm.pbf'
+    """
+    return urlparse(url).path.lstrip("/")
 
 
 def _build_index_json(regions: list[dict], data_root: Path) -> None:
@@ -78,16 +81,14 @@ def download_command(region_filter: str | None) -> None:
         region_id = region["id"]
         click.echo(f"\n[{region_id}]")
 
-        continent, name, updates_subdir = _region_paths(region_id)
-        pbf_dest = data_root / continent / f"{name}-latest.osm.pbf"
+        pbf_rel = _rel_path_from_url(region["pbf_url"])
+        pbf_dest = data_root / pbf_rel
         pbf_dest.parent.mkdir(parents=True, exist_ok=True)
-
-        geofabrik.download_pbf(region["pbf_url"], pbf_dest)
 
         updates_url = region.get("updates_url")
         start_date_str = region.get("start_date")
 
-        if updates_url and start_date_str:
+        if start_date_str:
             try:
                 target = date.fromisoformat(start_date_str)
             except ValueError:
@@ -95,20 +96,29 @@ def download_command(region_filter: str | None) -> None:
                     f"Invalid start_date '{start_date_str}' for region '{region_id}'. "
                     "Expected YYYY-MM-DD."
                 )
-            click.echo(f"  Resolving sequence number for {start_date_str}…")
-            start_seq = geofabrik.resolve_sequence_for_date(updates_url, target)
-            click.echo(f"  Start sequence: {start_seq}")
-            geofabrik.download_updates(updates_url, start_seq, data_root, updates_subdir)
-        elif updates_url and not start_date_str:
-            # No date specified — just download root state.txt so the endpoint exists
-            root_state = geofabrik.fetch_state_file(updates_url)
-            if root_state:
-                updates_dir = data_root / updates_subdir
-                updates_dir.mkdir(parents=True, exist_ok=True)
-                (updates_dir / "state.txt").write_text(
-                    "\n".join(f"{k}={v}" for k, v in root_state.items()) + "\n"
-                )
-                click.echo(f"  Wrote state.txt to {updates_dir}")
+            # Download the dated snapshot (e.g. monaco-260512.osm.pbf) and save as -latest
+            geofabrik.download_pbf_for_date(region["pbf_url"], target, pbf_dest)
+        else:
+            geofabrik.download_pbf(region["pbf_url"], pbf_dest)
+
+        if updates_url:
+            updates_rel = _rel_path_from_url(updates_url)
+
+            if start_date_str:
+                click.echo(f"  Resolving sequence number for {start_date_str}…")
+                start_seq = geofabrik.resolve_sequence_for_date(updates_url, target)
+                click.echo(f"  Start sequence: {start_seq}")
+                geofabrik.download_updates(updates_url, start_seq, data_root, updates_rel)
+            else:
+                # No date specified — just download root state.txt so the endpoint exists
+                root_state = geofabrik.fetch_state_file(updates_url)
+                if root_state:
+                    updates_dir = data_root / updates_rel
+                    updates_dir.mkdir(parents=True, exist_ok=True)
+                    (updates_dir / "state.txt").write_text(
+                        "\n".join(f"{k}={v}" for k, v in root_state.items()) + "\n"
+                    )
+                    click.echo(f"  Wrote state.txt to {updates_dir}")
 
     _build_index_json(manifest.load_manifest(), data_root)
     click.echo("\nDownload complete.")
