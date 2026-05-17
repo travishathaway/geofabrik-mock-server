@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pixi/
+dist/
+build/
+
+# Mock data — populated by gms download, bundled into conda package
+src/geofabrik_mock_server/data/*
+!src/geofabrik_mock_server/data/.gitkeep
