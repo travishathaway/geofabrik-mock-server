@@ -1,9 +1,7 @@
 import hashlib
-import re
 import shutil
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from pathlib import Path
-from urllib.parse import urlparse
 
 import requests
 
