@@ -1,24 +1,22 @@
-import importlib.resources
 import json
 from pathlib import Path
 
 
-def get_regions_path() -> Path:
-    ref = importlib.resources.files("geofabrik_mock_server") / "regions.json"
-    # In editable installs the traversable is already a real path; convert it.
-    with importlib.resources.as_file(ref) as p:
-        return p
+def get_regions_path(config: str | None = None) -> Path:
+    if config is not None:
+        return Path(config)
+    return Path(".") / "regions.json"
 
 
-def load_manifest() -> list[dict]:
-    path = get_regions_path()
+def load_manifest(config: str | None = None) -> list[dict]:
+    path = get_regions_path(config)
     if not path.exists():
         return []
     return json.loads(path.read_text())
 
 
-def save_manifest(regions: list[dict]) -> None:
-    path = get_regions_path()
+def save_manifest(regions: list[dict], config: str | None = None) -> None:
+    path = get_regions_path(config)
     path.write_text(json.dumps(regions, indent=2) + "\n")
 
 

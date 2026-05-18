@@ -19,7 +19,8 @@ build:
   script:
     file: build.sh
     env:
-      GMS_DATE: 2026-05-12
+      GEOFABRIK_MOCK_SERVER_DATE: ${{ date }}
+      GEOFABRIK_MOCK_SERVER_ROOT_DIR: "local/share/geofabrik-mock-server"
   python:
     entry_points:
       - gms = geofabrik_mock_server.cli:main

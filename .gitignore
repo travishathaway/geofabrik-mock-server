@@ -4,6 +4,7 @@ __pycache__/
 .pixi/
 dist/
 build/
+.idea/
 
 # Mock data — populated by gms download, bundled into conda package
 src/geofabrik_mock_server/data/*

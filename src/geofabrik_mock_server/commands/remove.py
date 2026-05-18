@@ -21,16 +21,21 @@ def _data_root() -> Path:
 @click.command("remove")
 @click.argument("region_id")
 @click.option("--yes", "-y", is_flag=True, help="Delete local data without prompting.")
-def remove_command(region_id: str, yes: bool) -> None:
+@click.option(
+    "--config",
+    envvar="GEOFABRIK_MOCK_SERVER_CONFIG",
+    help="Path to regions.json (default: ./regions.json).",
+)
+def remove_command(region_id: str, yes: bool, config: str | None) -> None:
     """Remove a region from the mock manifest."""
-    regions = manifest.load_manifest()
+    regions = manifest.load_manifest(config)
     region = manifest.find_region(regions, region_id)
 
     if region is None:
         raise click.ClickException(f"Region '{region_id}' is not in the manifest.")
 
     regions = [r for r in regions if r["id"] != region_id]
-    manifest.save_manifest(regions)
+    manifest.save_manifest(regions, config)
     click.echo(f"Removed '{region_id}' from regions.json.")
 
     # Determine local data paths to clean up using stored URLs (not region_id string)

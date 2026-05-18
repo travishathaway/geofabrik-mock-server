@@ -12,9 +12,14 @@ from geofabrik_mock_server.core import geofabrik, manifest
     default=None,
     help="Start date for update diffs (e.g. 2024-01-01). If omitted, only the PBF is downloaded.",
 )
-def add_command(region_id: str, start_date: str | None) -> None:
+@click.option(
+    "--config",
+    envvar="GEOFABRIK_MOCK_SERVER_CONFIG",
+    help="Location of config file"
+)
+def add_command(region_id: str, start_date: str | None, config: str | None) -> None:
     """Add a region to the mock manifest."""
-    regions = manifest.load_manifest()
+    regions = manifest.load_manifest(config)
 
     if manifest.find_region(regions, region_id):
         raise click.ClickException(f"Region '{region_id}' is already in the manifest.")
@@ -48,7 +53,7 @@ def add_command(region_id: str, start_date: str | None) -> None:
         entry["start_date"] = start_date
 
     regions.append(entry)
-    manifest.save_manifest(regions)
+    manifest.save_manifest(regions, config)
 
     click.echo(f"Added '{region_id}' ({entry['name']}) to regions.json.")
     if start_date:

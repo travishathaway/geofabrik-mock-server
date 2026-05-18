@@ -1,4 +1,3 @@
-import importlib.resources
 import json
 from datetime import date
 from pathlib import Path
@@ -9,12 +8,6 @@ import click
 from geofabrik_mock_server.core import geofabrik, manifest
 
 GEOFABRIK_BASE = "https://download.geofabrik.de"
-
-
-def _data_root() -> Path:
-    ref = importlib.resources.files("geofabrik_mock_server") / "data"
-    with importlib.resources.as_file(ref) as p:
-        return p
 
 
 def _rel_path_from_url(url: str) -> str:
@@ -61,9 +54,19 @@ def _build_index_json(regions: list[dict], data_root: Path) -> None:
     default=None,
     help="Download only this region (default: all regions in manifest).",
 )
-def download_command(region_filter: str | None) -> None:
+@click.option(
+    "-d", "--directory",
+    default=None,
+    help="Directory to save downloaded data to (default: current directory).",
+)
+@click.option(
+    "--config",
+    envvar="GEOFABRIK_MOCK_SERVER_CONFIG",
+    help="Path to regions.json (default: ./regions.json).",
+)
+def download_command(region_filter: str | None, directory: str | None, config: str | None) -> None:
     """Download PBF and update diffs for all manifest regions."""
-    regions = manifest.load_manifest()
+    regions = manifest.load_manifest(config)
     if not regions:
         raise click.ClickException(
             "No regions in manifest. Run 'gms add <region-id>' first."
@@ -74,8 +77,11 @@ def download_command(region_filter: str | None) -> None:
         if not regions:
             raise click.ClickException(f"Region '{region_filter}' not found in manifest.")
 
-    data_root = _data_root()
-    data_root.mkdir(parents=True, exist_ok=True)
+    if directory is not None:
+        data_root = Path(directory)
+        data_root.mkdir(parents=True, exist_ok=True)
+    else:
+        data_root = Path('.')
 
     for region in regions:
         region_id = region["id"]
@@ -120,5 +126,5 @@ def download_command(region_filter: str | None) -> None:
                     )
                     click.echo(f"  Wrote state.txt to {updates_dir}")
 
-    _build_index_json(manifest.load_manifest(), data_root)
+    _build_index_json(manifest.load_manifest(config), data_root)
     click.echo("\nDownload complete.")
