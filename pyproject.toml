@@ -27,3 +27,37 @@ requests = "*"
 
 [tool.pixi.pypi-dependencies]
 geofabrik-mock-server = { path = ".", editable = true }
+
+[tool.pixi.feature.dev.dependencies]
+pytest = ">=8"
+ruff = ">=0.9"
+mypy = ">=1"
+
+[tool.pixi.feature.dev.pypi-dependencies]
+types-requests = ">=2.31"
+prek = ">=0.4"
+
+[tool.pixi.feature.dev.tasks]
+test      = "pytest tests/"
+lint      = "prek run --all-files"
+typecheck = "mypy src/"
+check     = { depends-on = ["lint", "typecheck", "test"] }
+
+[tool.pixi.environments]
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

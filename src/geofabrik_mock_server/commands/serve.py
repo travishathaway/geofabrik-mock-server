@@ -1,25 +1,24 @@
-import importlib.resources
 from pathlib import Path
 
 import click
+from werkzeug.serving import make_server
 
 from geofabrik_mock_server.core.server import create_app
 
 
-def _data_root() -> Path:
-    ref = importlib.resources.files("geofabrik_mock_server") / "data"
-    with importlib.resources.as_file(ref) as p:
-        return p
-
-
 @click.command("serve")
-@click.option("--port", default=8080, show_default=True, help="Port to listen on.")
+@click.option(
+    "--port",
+    default=8080,
+    show_default=True,
+    help="Port to listen on. Use 0 to let the OS assign a free port.",
+)
 @click.option("--host", default="127.0.0.1", show_default=True, help="Host to bind to.")
 @click.option(
     "--root-dir",
     envvar="GEOFABRIK_MOCK_SERVER_ROOT_DIR",
     show_default=True,
-    help="Root directory to serve from"
+    help="Root directory to serve from",
 )
 def serve_command(port: int, host: str, root_dir: str) -> None:
     """Serve the mock Geofabrik data over HTTP."""
@@ -31,6 +30,8 @@ def serve_command(port: int, host: str, root_dir: str) -> None:
         )
 
     app = create_app(data_root)
-    click.echo(f"Geofabrik mock server running at http://{host}:{port}/")
+    server = make_server(host, port, app)
+    actual_port = server.socket.getsockname()[1]
+    click.echo(f"Geofabrik mock server running at http://{host}:{actual_port}/")
     click.echo("Press Ctrl+C to stop.")
-    app.run(host=host, port=port)
+    server.serve_forever()
