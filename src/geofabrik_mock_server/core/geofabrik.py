@@ -143,7 +143,11 @@ def _verify_md5(file_path: Path, md5_url: str) -> None:
 def download_pbf(pbf_url: str, dest: Path) -> None:
     print(f"  Downloading PBF: {pbf_url}")
     download_file(pbf_url, dest)
-    print(f"  Saved: {dest}")
+    md5_url = f"{pbf_url}.md5"
+    print(f"  Verifying MD5…")
+    _verify_md5(dest, md5_url)
+    print(f"  MD5 OK — saved: {dest}")
+    download_file(md5_url, Path(f"{dest}.md5"))
 
 
 def download_pbf_for_date(pbf_url: str, target_date: date, dest: Path) -> None:
@@ -155,6 +159,7 @@ def download_pbf_for_date(pbf_url: str, target_date: date, dest: Path) -> None:
     print(f"  Verifying MD5…")
     _verify_md5(dest, md5_url)
     print(f"  MD5 OK — saved: {dest}")
+    download_file(md5_url, Path(f"{dest}.md5"))
 
 
 def download_updates(
